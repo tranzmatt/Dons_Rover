@@ -1,0 +1,6 @@
+camera_viewer:
+  ros__parameters:
+    image_topic: "/image_raw"
+    show_window: true
+    window_name: "UGV Rover Camera"
+    display_fps: true
