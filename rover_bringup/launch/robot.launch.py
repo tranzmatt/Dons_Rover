@@ -7,7 +7,7 @@ from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.substitutions import LaunchConfiguration
-from launch.launch_description_sources import PythonLaunchDescriptionSources
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from ament_index_python.packages import get_package_share_directory
 import os
 
@@ -113,7 +113,7 @@ def generate_launch_description():
         # LD19 LIDAR
         # Launches LIDAR driver with correct port configuration
         IncludeLaunchDescription(
-            PythonLaunchDescriptionSources(ldlidar_launch),
+            PythonLaunchDescriptionSource(ldlidar_launch),
             launch_arguments={
                 'port_name': '/dev/ttyACM0',
                 'frame_id': 'laser_frame'
