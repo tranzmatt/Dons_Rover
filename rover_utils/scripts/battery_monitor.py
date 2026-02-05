@@ -24,6 +24,9 @@ class BatteryMonitor(Node):
         self.declare_parameter('min_voltage', 6.0)
         self.declare_parameter('max_voltage', 13.0)
         self.declare_parameter('update_rate', 5.0)  # Hz
+        self.declare_parameter('enable_espeak', True)
+        self.declare_parameter('espeak_voice', 'en+m3')
+        self.declare_parameter('espeak_speed', 150)
         
         # Get parameters
         i2c_bus = self.get_parameter('i2c_bus').get_parameter_value().integer_value
@@ -33,6 +36,9 @@ class BatteryMonitor(Node):
         self.min_voltage = self.get_parameter('min_voltage').get_parameter_value().double_value
         self.max_voltage = self.get_parameter('max_voltage').get_parameter_value().double_value
         update_rate = self.get_parameter('update_rate').get_parameter_value().double_value
+        self.enable_espeak = self.get_parameter('enable_espeak').get_parameter_value().bool_value
+        self.espeak_voice = self.get_parameter('espeak_voice').get_parameter_value().string_value
+        self.espeak_speed = self.get_parameter('espeak_speed').get_parameter_value().integer_value
         
         # Battery warning flags (to only warn once per threshold)
         self.low_battery_warned = False
@@ -58,17 +64,24 @@ class BatteryMonitor(Node):
         self.timer = self.create_timer(timer_period, self.read_battery)
         
         self.get_logger().info('Battery monitor node started')
+        self.get_logger().info(f'  Enable espeak: {self.enable_espeak}')
+        self.get_logger().info(f'  Espeak voice: {self.espeak_voice}')
+        self.get_logger().info(f'  Espeak speed: {self.espeak_speed} wpm')
     
     def play_audio_warning(self, message):
         """Play an audible warning using espeak"""
+        if not self.enable_espeak:
+            return
+            
         try:
             subprocess.Popen(
-                ['espeak', message],
+                ['espeak', '-v', self.espeak_voice, '-s', str(self.espeak_speed), message],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL
             )
+            self.get_logger().info(f'Espeak warning: "{message}"')
         except Exception as e:
-            self.get_logger().debug(f'Could not play audio warning: {e}')
+            self.get_logger().error(f'Failed to trigger espeak: {e}')
     
     def read_battery(self):
         """Read battery voltage from INA219 sensor"""
@@ -100,14 +113,16 @@ class BatteryMonitor(Node):
                 if voltage < self.critical_voltage:
                     self.get_logger().error(f'🔴 CRITICAL BATTERY: {voltage:.2f}V - Stop and recharge immediately!')
                     if not self.critical_battery_warned:
-                        self.play_audio_warning('Critical battery. Stop and recharge immediately')
+                        voltage_rounded = round(voltage, 1)
+                        self.play_audio_warning(f'Critical battery. {voltage_rounded} volts. Stop and recharge immediately')
                         self.critical_battery_warned = True
                         self.low_battery_warned = True  # Set both flags
                         
                 elif voltage < self.low_voltage:
                     self.get_logger().warn(f'⚠️  LOW BATTERY: {voltage:.2f}V - Consider recharging soon!')
                     if not self.low_battery_warned:
-                        self.play_audio_warning('Low battery warning')
+                        voltage_rounded = round(voltage, 1)
+                        self.play_audio_warning(f'Low battery warning. {voltage_rounded} volts')
                         self.low_battery_warned = True
                         
                 else:
