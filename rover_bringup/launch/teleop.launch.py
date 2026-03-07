@@ -31,12 +31,6 @@ def generate_launch_description():
         ),
         
         DeclareLaunchArgument(
-            'joy_dev',
-            default_value='/dev/input/js0',
-            description='Joystick device path'
-        ),
-        
-        DeclareLaunchArgument(
             'use_joystick',
             default_value='true',
             description='Use joystick teleop if true, keyboard teleop if false'
@@ -49,7 +43,7 @@ def generate_launch_description():
             name='joy_node',
             parameters=[
                 {
-                    'device_id': joy_dev,
+                    'device_id': 0,
                     'deadzone': 0.05,
                     'autorepeat_rate': 20.0,
                     'use_sim_time': use_sim_time
