@@ -17,7 +17,7 @@ import os
 
 def generate_launch_description():
     # Get paths
-    pkg_share = get_package_share_directory('rover_navigation')
+    pkg_share = get_package_share_directory('rover_mapping')
     slam_params_file = os.path.join(pkg_share, 'config', 'slam_toolbox_params.yaml')
     
     # Debug: print the path
