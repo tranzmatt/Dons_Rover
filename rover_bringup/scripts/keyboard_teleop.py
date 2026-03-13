@@ -74,7 +74,7 @@ class ugv_Keyboard(Node):
 		
 	def getKey(self):
 		tty.setraw(sys.stdin.fileno())
-		rlist, _, _ = select.select([sys.stdin], [], [], 0.1)
+		rlist, _, _ = select.select([sys.stdin], [], [], 0.05)
 		if rlist: key = sys.stdin.read(1)
 		else: key = ''
 		termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.settings)
@@ -122,7 +122,7 @@ def main():
 			elif key == ' ': (x, th) = (0, 0)
 			else:
 				count = count + 1
-				if count > 4: (x, th) = (0, 0)
+				if count > 1: (x, th) = (0, 0)
 				if (key == '\x03'): break
 			if xspeed_switch: twist.linear.x = speed * x
 			else: twist.linear.y = speed * x
