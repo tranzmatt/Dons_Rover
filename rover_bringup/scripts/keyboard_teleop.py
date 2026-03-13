@@ -130,7 +130,7 @@ def main():
 			if not stop: ugv_keyboard.pub.publish(twist)
 			if stop:ugv_keyboard.pub.publish(Twist())
 	except Exception as e: 
-		print(e)
+		ugv_keyboard.get_logger().error(str(e))
 	finally: ugv_keyboard.pub.publish(Twist())
 	termios.tcsetattr(sys.stdin, termios.TCSADRAIN, ugv_keyboard.settings)
 	ugv_keyboard.destroy_node()
