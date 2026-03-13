@@ -1,15 +1,28 @@
 #!/usr/bin/env python3
+"""
+Usage:
+  ros2 launch rover_mapping bringup.launch.py
+
+Optional args:
+  ros2 launch rover_mapping bringup.launch.py lidar_port:=/dev/ttyUSB1
+  ros2 launch rover_mapping bringup.launch.py use_imu_heading:=true
+"""
 
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
-    IncludeLaunchDescription,
+    EmitEvent,
+    RegisterEventHandler,
     TimerAction,
 )
-from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.event_handlers import OnProcessStart
+from launch.events import matches_action
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
-from launch_ros.actions import Node
+from launch_ros.actions import Node, LifecycleNode
+from launch_ros.event_handlers import OnStateTransition
+from launch_ros.events.lifecycle import ChangeState
 from launch_ros.substitutions import FindPackageShare
+import lifecycle_msgs.msg
 
 
 def generate_launch_description():
@@ -90,22 +103,54 @@ def generate_launch_description():
     # ── 4. SLAM Toolbox ──────────────────────────────────────────────────────
     # Delayed 3 seconds so LIDAR and odom are publishing before SLAM starts.
     # If you see "waiting for transform" errors on first run, increase to 5.0.
-    slam_launch = TimerAction(
+    slam_node = LifecycleNode(
+        package='slam_toolbox',
+        executable='async_slam_toolbox_node',
+        name='slam_toolbox',
+        namespace='',
+        parameters=[
+            PathJoinSubstitution([
+                FindPackageShare('rover_mapping'),
+                'config',
+                'slam_toolbox_params.yaml'
+            ]),
+            {'use_sim_time': use_sim_time},
+        ],
+        output='screen',
+    )
+
+    configure_event = EmitEvent(
+        event=ChangeState(
+            lifecycle_node_matcher=matches_action(slam_node),
+            transition_id=lifecycle_msgs.msg.Transition.TRANSITION_CONFIGURE,
+        )
+    )
+
+    activate_event = RegisterEventHandler(
+        OnStateTransition(
+            target_lifecycle_node=slam_node,
+            goal_state='inactive',
+            entities=[
+                EmitEvent(
+                    event=ChangeState(
+                        lifecycle_node_matcher=matches_action(slam_node),
+                        transition_id=lifecycle_msgs.msg.Transition.TRANSITION_ACTIVATE,
+                    )
+                ),
+            ],
+        )
+    )
+
+    configure_on_start = RegisterEventHandler(
+        OnProcessStart(
+            target_action=slam_node,
+            on_start=[configure_event],
+        )
+    )
+
+    slam_delayed = TimerAction(
         period=3.0,
-        actions=[
-            IncludeLaunchDescription(
-                PythonLaunchDescriptionSource([
-                    PathJoinSubstitution([
-                        FindPackageShare('rover_mapping'),
-                        'launch',
-                        'slam.launch.py'
-                    ])
-                ]),
-                launch_arguments={
-                    'use_sim_time': use_sim_time,
-                }.items()
-            )
-        ]
+        actions=[slam_node, configure_on_start, activate_event],
     )
 
     return LaunchDescription([
@@ -115,5 +160,5 @@ def generate_launch_description():
         lidar_node,
         odom_node,
         static_tf_node,
-        slam_launch,
+        slam_delayed,
     ])
