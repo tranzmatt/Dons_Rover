@@ -4,19 +4,23 @@ slam.launch.py — SLAM mapping launch for UGV Rover
 
 Assumes rover_bringup robot.launch.py is already running, which provides:
   - LD19 LIDAR              -> /scan
-  - odom_publisher          -> /odom + odom->base_footprint TF
+  - odom_publisher          -> /odom (wheel encoders, TF disabled)
   - robot_state_publisher   -> base_footprint->base_link TF (from URDF)
 
 This launch file adds:
-  - USB camera driver (usb_cam) -> /image_raw
+  - USB camera driver (usb_cam)         -> /image_raw
   - Camera viewer (rover_vision)
+  - rf2o laser odometry                 -> /odom_rf2o + odom->base_footprint TF
   - SLAM Toolbox (async, lifecycle-managed)
+
+Important: rover_params.yaml must have pub_odom_tf: false so that
+odom_publisher does not conflict with rf2o's TF broadcast.
 
 Full mapping session workflow:
   # Terminal 1 - robot hardware
   ros2 launch rover_bringup robot.launch.py
 
-  # Terminal 2 - SLAM + camera
+  # Terminal 2 - SLAM + camera (this file)
   ros2 launch rover_mapping slam.launch.py
 
   # Terminal 3 - drive to build the map
@@ -32,6 +36,7 @@ Prerequisites:
   sudo apt install ros-jazzy-slam-toolbox
   sudo apt install ros-jazzy-nav2-map-server
   sudo apt install ros-jazzy-usb-cam
+  # rf2o built from source in rover_ws
 """
 
 import os
@@ -82,12 +87,11 @@ def generate_launch_description():
         description='Use config file or command line parameters'
     )
 
-    use_sim_time   = LaunchConfiguration('use_sim_time')
-    camera_device  = LaunchConfiguration('camera_device')
+    use_sim_time  = LaunchConfiguration('use_sim_time')
+    camera_device = LaunchConfiguration('camera_device')
 
     # -- USB Camera Driver -----------------------------------------------------
     # Publishes /image_raw (sensor_msgs/Image)
-    # If your camera doesn't appear on /dev/video0, pass camera_device:=/dev/video2
     usb_cam_node = Node(
         package='usb_cam',
         executable='usb_cam_node_exe',
@@ -119,9 +123,31 @@ def generate_launch_description():
         output='screen',
     )
 
+    # -- rf2o Laser Odometry ---------------------------------------------------
+    # Estimates odometry purely from consecutive LIDAR scans.
+    # Much more accurate than wheel encoders for SLAM, especially on smooth floors.
+    # Subscribes: /scan
+    # Publishes:  /odom_rf2o (nav_msgs/Odometry)
+    # Broadcasts: odom -> base_footprint TF
+    # Note: rover_params.yaml must have pub_odom_tf: false to avoid TF conflict.
+    rf2o_node = Node(
+        package='rf2o_laser_odometry',
+        executable='rf2o_laser_odometry_node',
+        name='rf2o_laser_odometry',
+        parameters=[{
+            'laser_scan_topic':   '/scan',
+            'odom_topic':         '/odom_rf2o',
+            'publish_tf':         True,
+            'base_frame_id':      'base_footprint',
+            'odom_frame_id':      'odom',
+            'init_pose_from_topic': '',
+            'freq':               10.0,
+        }],
+        output='screen',
+    )
+
     # -- SLAM Toolbox ----------------------------------------------------------
-    # Delayed 3 seconds to ensure /scan and /odom are publishing before SLAM
-    # attempts its first transform lookup.
+    # Delayed 3 seconds to ensure /scan and rf2o odom are publishing first.
     # If you see "waiting for transform" on first run, increase period to 5.0.
     slam_node = LifecycleNode(
         package='slam_toolbox',
@@ -181,5 +207,6 @@ def generate_launch_description():
         use_config_arg,
         usb_cam_node,
         camera_viewer,
+        rf2o_node,
         slam_delayed,
     ])
