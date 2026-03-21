@@ -10,11 +10,12 @@ Assumes rover_bringup robot.launch.py is already running, which provides:
 This launch file adds:
   - USB camera driver (usb_cam)         -> /image_raw
   - Camera viewer (rover_vision)
-  - rf2o laser odometry                 -> /odom_rf2o + odom->base_footprint TF
+  - rf2o laser odometry                 -> /odom_rf2o (TF disabled)
+  - Odometry filter                     -> /odom_filtered + odom->base_footprint TF
   - SLAM Toolbox (async, lifecycle-managed)
 
 Important: rover_params.yaml must have pub_odom_tf: false so that
-odom_publisher does not conflict with rf2o's TF broadcast.
+odom_publisher does not conflict with the odom_filter TF broadcast.
 
 Full mapping session workflow:
   # Terminal 1 - robot hardware
@@ -31,6 +32,8 @@ Full mapping session workflow:
 
 Optional args:
   ros2 launch rover_mapping slam.launch.py camera_device:=/dev/video2
+  ros2 launch rover_mapping slam.launch.py linear_threshold:=0.01
+  ros2 launch rover_mapping slam.launch.py angular_threshold:=0.03
 
 Prerequisites:
   sudo apt install ros-jazzy-slam-toolbox
@@ -86,12 +89,23 @@ def generate_launch_description():
         default_value='true',
         description='Use config file or command line parameters'
     )
+    linear_threshold_arg = DeclareLaunchArgument(
+        'linear_threshold',
+        default_value='0.005',
+        description='Linear velocity noise threshold in m/s (increase if map twitches)'
+    )
+    angular_threshold_arg = DeclareLaunchArgument(
+        'angular_threshold',
+        default_value='0.02',
+        description='Angular velocity noise threshold in rad/s (increase if map rotates)'
+    )
 
-    use_sim_time  = LaunchConfiguration('use_sim_time')
-    camera_device = LaunchConfiguration('camera_device')
+    use_sim_time       = LaunchConfiguration('use_sim_time')
+    camera_device      = LaunchConfiguration('camera_device')
+    linear_threshold   = LaunchConfiguration('linear_threshold')
+    angular_threshold  = LaunchConfiguration('angular_threshold')
 
     # -- USB Camera Driver -----------------------------------------------------
-    # Publishes /image_raw (sensor_msgs/Image)
     usb_cam_node = Node(
         package='usb_cam',
         executable='usb_cam_node_exe',
@@ -124,31 +138,43 @@ def generate_launch_description():
     )
 
     # -- rf2o Laser Odometry ---------------------------------------------------
-    # Estimates odometry purely from consecutive LIDAR scans.
-    # Much more accurate than wheel encoders for SLAM, especially on smooth floors.
-    # Subscribes: /scan
-    # Publishes:  /odom_rf2o (nav_msgs/Odometry)
-    # Broadcasts: odom -> base_footprint TF
-    # Note: rover_params.yaml must have pub_odom_tf: false to avoid TF conflict.
+    # publish_tf is FALSE — odom_filter takes over TF broadcasting.
+    # This prevents phantom motion from scan noise reaching slam_toolbox directly.
     rf2o_node = Node(
         package='rf2o_laser_odometry',
         executable='rf2o_laser_odometry_node',
         name='rf2o_laser_odometry',
         parameters=[{
-            'laser_scan_topic':   '/scan',
-            'odom_topic':         '/odom_rf2o',
-            'publish_tf':         True,
-            'base_frame_id':      'base_footprint',
-            'odom_frame_id':      'odom',
+            'laser_scan_topic':     '/scan',
+            'odom_topic':           '/odom_rf2o',
+            'publish_tf':           False,
+            'base_frame_id':        'base_footprint',
+            'odom_frame_id':        'odom',
             'init_pose_from_topic': '',
-            'freq':               5.0,
+            'freq':                 10.0,
+        }],
+        output='screen',
+    )
+
+    # -- Odometry Filter -------------------------------------------------------
+    # Subscribes to /odom_rf2o, zeroes velocities below noise threshold,
+    # publishes /odom_filtered and broadcasts odom->base_footprint TF.
+    # Tune linear_threshold and angular_threshold to stop map twitching.
+    odom_filter_node = Node(
+        package='rover_mapping',
+        executable='odom_filter.py',
+        name='odom_filter',
+        parameters=[{
+            'linear_threshold':  linear_threshold,
+            'angular_threshold': angular_threshold,
+            'odom_frame':        'odom',
+            'base_frame':        'base_footprint',
         }],
         output='screen',
     )
 
     # -- SLAM Toolbox ----------------------------------------------------------
-    # Delayed 3 seconds to ensure /scan and rf2o odom are publishing first.
-    # If you see "waiting for transform" on first run, increase period to 5.0.
+    # Delayed 3 seconds to ensure /scan and odom_filter are publishing first.
     slam_node = LifecycleNode(
         package='slam_toolbox',
         executable='async_slam_toolbox_node',
@@ -205,8 +231,11 @@ def generate_launch_description():
         image_topic_arg,
         show_window_arg,
         use_config_arg,
+        linear_threshold_arg,
+        angular_threshold_arg,
         usb_cam_node,
         camera_viewer,
         rf2o_node,
+        odom_filter_node,
         slam_delayed,
     ])
