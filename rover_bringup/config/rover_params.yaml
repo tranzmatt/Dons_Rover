@@ -44,7 +44,7 @@
     
     # Odometry Settings
     publish_rate: 20.0         # Hz - odometry publishing frequency
-    pub_odom_tf: false          # whether to publish odom->base_footprint transform
+    pub_odom_tf: true          # whether to publish odom->base_footprint transform
     odom_frame: 'odom'         # odometry frame name
     base_footprint_frame: 'base_footprint'  # robot base footprint frame
     base_frame: 'base_link'    # robot base frame name
