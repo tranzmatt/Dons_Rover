@@ -45,7 +45,8 @@ RUN mkdir -p ${WS_DIR}/rover_mapping/maps \
 RUN if [ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]; then rosdep init; fi \
  && rosdep update \
  && source /opt/ros/${ROS_DISTRO}/setup.bash \
- && rosdep install --from-paths ${WS_DIR} --ignore-src -r -y
+ && rosdep install --from-paths ${WS_DIR} --ignore-src -r -y \
+    --skip-keys tf_transformations
 
 RUN source /opt/ros/${ROS_DISTRO}/setup.bash \
  && colcon build --symlink-install
