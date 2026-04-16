@@ -39,8 +39,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Prepare the workspace so colcon can build all packages in a clean container.
 RUN mkdir -p ${WS_DIR}/rover_mapping/maps \
- && sed -i 's/<depend>geomerty_msgs<\\/depend>/<depend>geometry_msgs<\\/depend>/' ${WS_DIR}/rover_example/package.xml \
- && sed -i 's/<depend>rcply<\\/depend>/<depend>rclpy<\\/depend>/' ${WS_DIR}/rover_example/package.xml
+ && sed -i 's|<depend>geomerty_msgs</depend>|<depend>geometry_msgs</depend>|' ${WS_DIR}/rover_example/package.xml \
+ && sed -i 's|<depend>rcply</depend>|<depend>rclpy</depend>|' ${WS_DIR}/rover_example/package.xml
 
 RUN if [ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]; then rosdep init; fi \
  && rosdep update \
