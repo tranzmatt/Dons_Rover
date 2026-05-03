@@ -48,7 +48,7 @@
     odom_frame: 'odom'         # odometry frame name
     base_footprint_frame: 'base_footprint'  # robot base footprint frame
     base_frame: 'base_link'    # robot base frame name
-    use_imu_heading: true      # use IMU for heading instead of wheel odometry
+    use_imu_heading: false      # use IMU for heading instead of wheel odometry
     
     # Camera Settings (if using PT camera)
     camera_enabled: false      # enable/disable camera node
