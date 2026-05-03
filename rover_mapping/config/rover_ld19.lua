@@ -22,7 +22,7 @@ options = {
   -- Frame IDs must match your TF tree
   map_frame = "map",
   tracking_frame = "base_footprint",   -- frame Cartographer tracks
-  published_frame = "base_footprint",  -- frame Cartographer publishes pose for
+  published_frame = "odom",  -- frame Cartographer publishes pose for
   odom_frame = "odom",
 
   -- Use odometry from /odom topic
