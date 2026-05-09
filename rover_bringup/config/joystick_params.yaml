@@ -1,17 +1,13 @@
 /**:
   ros__parameters:
     # Joystick Teleop Settings
-    deadzone: 0.2              # joystick deadzone to prevent drift
-    linear_gear_default: 1.0   # starting linear speed gear (1.0 = full speed)
-    angular_gear_default: 1.0  # starting angular speed gear (1.0 = full speed)
+    deadzone: 0.2
 
     # Headlight Control
-    headlight_up_button: 1     # button index to increase brightness
-    headlight_down_button: 2   # button index to decrease brightness
-    headlight_step: 64.0       # brightness change per press (0-255)
+    headlight_up_button: 0
+    headlight_down_button: 1
+    headlight_step: 64.0
 
-    # SHANWAN Android Gamepad button/axis mappings
-    linear_gear_button: 13     # button index to cycle linear gear
-    angular_gear_button: 14    # button index to cycle angular gear
-    linear_axis: 1             # axis index for forward/backward
-    angular_axis: 2            # axis index for left/right
+    # Controller axis mappings
+    linear_axis: 1
+    angular_axis: 3
