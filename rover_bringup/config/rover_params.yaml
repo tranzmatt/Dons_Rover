@@ -21,11 +21,6 @@
     max_angular_speed: 2.0     # rad/s - maximum turning speed
     speed_scale: 1.0           # overall speed multiplier (0.0-1.0)
     
-    # Joystick Teleop Settings
-    deadzone: 0.2              # joystick deadzone to prevent drift
-    linear_gear_default: 1.0   # starting linear speed gear (1.0 = full speed)
-    angular_gear_default: 1.0  # starting angular speed gear (1.0 = full speed)
-    
     # Motor Control
     watchdog_timeout: 0.5      # seconds - stop motors if no cmd_vel received
     
